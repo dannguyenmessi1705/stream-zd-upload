@@ -1,0 +1,43 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: stream-worker
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: video-processing-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.streaming.worker.dto"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  redis:
+    host: localhost
+    port: 6379
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket:
+    video: videos
+    hls: hls
+
+elasticsearch:
+  host: localhost
+  port: 9200
+
+app:
+  ffmpeg:
+    input-path: /tmp/stream-worker/input
+    output-path: /tmp/stream-worker/output
+
+kafka:
+  topic:
+    video-uploaded: video-uploaded
+    video-processed: video-processed 
