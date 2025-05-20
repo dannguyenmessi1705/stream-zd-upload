@@ -15,7 +15,6 @@ import java.util.Map;
 public class DatabaseChangeService {
 
     private final ObjectMapper objectMapper;
-    private final ElasticSearchService elasticSearchService;
     private final CacheService cacheService;
 
     @KafkaListener(topics = "db-changes.videos")
@@ -28,11 +27,9 @@ public class DatabaseChangeService {
             switch (operation) {
                 case "c": // Create
                 case "u": // Update
-                    elasticSearchService.indexVideo(after);
                     cacheService.invalidateVideoCache(after.get("id").asText());
                     break;
                 case "d": // Delete
-                    elasticSearchService.deleteVideo(before.get("id").asText());
                     cacheService.invalidateVideoCache(before.get("id").asText());
                     break;
                 default:
@@ -53,11 +50,9 @@ public class DatabaseChangeService {
             switch (operation) {
                 case "c": // Create
                 case "u": // Update
-                    elasticSearchService.indexLivestream(after);
                     cacheService.invalidateLivestreamCache(after.get("id").asText());
                     break;
                 case "d": // Delete
-                    elasticSearchService.deleteLivestream(before.get("id").asText());
                     cacheService.invalidateLivestreamCache(before.get("id").asText());
                     break;
                 default:

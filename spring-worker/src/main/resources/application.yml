@@ -28,10 +28,6 @@ minio:
     video: videos
     hls: hls
 
-elasticsearch:
-  host: localhost
-  port: 9200
-
 app:
   ffmpeg:
     input-path: /tmp/stream-worker/input
