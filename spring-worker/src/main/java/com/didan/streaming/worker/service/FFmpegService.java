@@ -1,5 +1,6 @@
 package com.didan.streaming.worker.service;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -7,53 +8,75 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class FFmpegService {
+    @Value("${app.ffmpeg.output-dir}")
+    private String outputDir;
 
-    @Value("${app.ffmpeg.output-path}")
-    private String outputPath;
+    @Value("${app.ffmpeg.segment-duration}")
+    private int segmentDuration;
 
-    public String convertToHls(File inputFile, UUID videoId) throws IOException, InterruptedException {
-        String outputDir = Path.of(outputPath, videoId.toString()).toString();
-        new File(outputDir).mkdirs();
+    public String getOutputPath(UUID userId, UUID videoId) {
+        return String.format("%s/%s/%s", outputDir, userId, videoId);
+    }
 
-        String playlistFile = Path.of(outputDir, "playlist.m3u8").toString();
-        
+    public void convertToHls(String inputPath, String outputPath) throws IOException {
+        // Tạo thư mục output nếu chưa tồn tại
+        Files.createDirectories(Path.of(outputPath));
+
         List<String> command = new ArrayList<>();
         command.add("ffmpeg");
         command.add("-i");
-        command.add(inputFile.getAbsolutePath());
-        command.add("-profile:v");
-        command.add("baseline");
-        command.add("-level");
-        command.add("3.0");
-        command.add("-start_number");
-        command.add("0");
+        command.add(inputPath);
+        command.add("-c:v");
+        command.add("libx264");
+        command.add("-c:a");
+        command.add("aac");
         command.add("-hls_time");
-        command.add("10");
+        command.add(String.valueOf(segmentDuration));
         command.add("-hls_list_size");
         command.add("0");
-        command.add("-f");
-        command.add("hls");
-        command.add(playlistFile);
+        command.add("-hls_segment_filename");
+        command.add(outputPath + "/segment_%03d.ts");
+        command.add(outputPath + "/playlist.m3u8");
 
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         processBuilder.redirectErrorStream(true);
-        Process process = processBuilder.start();
-        
-        int exitCode = process.waitFor();
-        if (exitCode != 0) {
-            throw new IOException("FFmpeg process failed with exit code: " + exitCode);
-        }
 
-        return videoId.toString();
+        try {
+            Process process = processBuilder.start();
+            int exitCode = process.waitFor();
+
+            if (exitCode != 0) {
+                throw new RuntimeException("FFmpeg process failed with exit code: " + exitCode);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("FFmpeg process was interrupted", e);
+        }
+    }
+
+    public void cleanup(String path) {
+        try {
+            File directory = new File(path);
+            if (directory.exists()) {
+                Files.walk(directory.toPath())
+                        .sorted((p1, p2) -> -p1.compareTo(p2))
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+            }
+        } catch (IOException e) {
+            log.error("Error cleaning up directory {}: {}", path, e.getMessage());
+            throw new RuntimeException("Failed to cleanup directory", e);
+        }
     }
 
     public long getDuration(File inputFile) throws IOException, InterruptedException {

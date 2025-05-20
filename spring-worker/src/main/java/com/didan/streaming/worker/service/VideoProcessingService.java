@@ -1,91 +1,66 @@
 package com.didan.streaming.worker.service;
 
-import com.didan.streaming.worker.dto.VideoProcessedMessage;
-import com.didan.streaming.worker.dto.VideoUploadedMessage;
+import com.didan.streaming.worker.dto.VideoMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class VideoProcessingService {
-
-    private final StorageService storageService;
+    private final MinioService minioService;
     private final FFmpegService ffmpegService;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ApiService apiService;
 
-    @Value("${app.ffmpeg.input-path}")
-    private String inputPath;
+    @Value("${app.temp-dir}")
+    private String tempDir;
 
-    @KafkaListener(topics = "${kafka.topic.video-uploaded}")
-    public void handleVideoUploaded(VideoUploadedMessage message) {
-        log.info("Received video uploaded message: {}", message);
-        
+    @KafkaListener(topics = "video-uploaded", groupId = "video-processor")
+    public void processVideo(VideoMessage message) {
+        String videoId = message.getVideoId();
+        String userId = message.getUserId();
+        String minioPath = message.getMinioPath();
+        String originalFilename = message.getOriginalFilename();
+
         try {
-            // Download video from MinIO
-            String videoPath = Path.of(inputPath, message.getVideoId().toString()).toString();
-            byte[] videoData = storageService.getVideo(message.getMinioPath());
-            Files.write(Path.of(videoPath), videoData);
-            File videoFile = new File(videoPath);
+            // Tạo thư mục tạm thời
+            String tempPath = Path.of(tempDir, videoId).toString();
+            Files.createDirectories(Path.of(tempPath));
 
-            // Convert to HLS
-            String hlsPath = ffmpegService.convertToHls(videoFile, message.getVideoId());
-            
-            // Get video duration
-            long duration = ffmpegService.getDuration(videoFile);
+            // Download video từ Minio
+            File inputFile = new File(tempPath, originalFilename);
+            minioService.downloadVideo(minioPath, inputFile.getAbsolutePath());
 
-            // Upload HLS files to MinIO
-            File hlsDir = new File(Path.of(ffmpegService.getOutputPath(), hlsPath).toString());
-            for (File file : hlsDir.listFiles()) {
-                byte[] data = Files.readAllBytes(file.toPath());
-                storageService.uploadHls(Path.of(hlsPath, file.getName()).toString(), data);
-            }
+            // Lấy thời lượng video
+            long duration = ffmpegService.getDuration(inputFile);
 
-            // Delete temporary files
-            videoFile.delete();
-            deleteDirectory(hlsDir);
+            // Chuyển đổi sang HLS
+            String outputPath = ffmpegService.getOutputPath(UUID.fromString(userId), UUID.fromString(videoId));
+            ffmpegService.convertToHls(inputFile.getAbsolutePath(), outputPath);
 
-            // Send success message
-            VideoProcessedMessage processedMessage = VideoProcessedMessage.builder()
-                    .videoId(message.getVideoId())
-                    .hlsPath(hlsPath)
-                    .duration(duration)
-                    .success(true)
-                    .build();
-            kafkaTemplate.send("video-processed", processedMessage);
+            // Upload HLS lên Minio
+            minioService.uploadHls(outputPath, videoId);
+
+            // Cập nhật trạng thái video
+            apiService.updateVideoStatus(videoId, "READY", duration);
+
+            // Dọn dẹp
+            ffmpegService.cleanup(tempPath);
+            ffmpegService.cleanup(outputPath);
 
         } catch (Exception e) {
-            log.error("Error processing video: {}", e.getMessage(), e);
-            
-            // Send error message
-            VideoProcessedMessage errorMessage = VideoProcessedMessage.builder()
-                    .videoId(message.getVideoId())
-                    .success(false)
-                    .errorMessage(e.getMessage())
-                    .build();
-            kafkaTemplate.send("video-processed", errorMessage);
+            log.error("Error processing video {}: {}", videoId, e.getMessage());
+            apiService.updateVideoStatus(videoId, "ERROR", null);
+            throw new RuntimeException("Failed to process video", e);
         }
-    }
-
-    private void deleteDirectory(File directory) {
-        File[] files = directory.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteDirectory(file);
-                } else {
-                    file.delete();
-                }
-            }
-        }
-        directory.delete();
     }
 } 

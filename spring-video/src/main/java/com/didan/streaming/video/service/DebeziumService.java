@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -20,15 +21,25 @@ public class DebeziumService {
 
     @PostConstruct
     private void start() {
-        log.info("Starting Debezium engine...");
-        this.executor.execute(debeziumEngine);
+        try {
+            log.info("Starting Debezium engine...");
+            this.executor.execute(debeziumEngine);
+        } catch (Exception e) {
+            log.error("Error starting Debezium engine: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to start Debezium engine", e);
+        }
     }
 
     @PreDestroy
     private void stop() {
-        log.info("Stopping Debezium engine...");
-        if (this.debeziumEngine != null) {
-            this.debeziumEngine.close();
+        try {
+            log.info("Stopping Debezium engine...");
+            if (this.debeziumEngine != null) {
+                this.debeziumEngine.close();
+            }
+        } catch (IOException e) {
+            log.error("Error stopping Debezium engine: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to stop Debezium engine", e);
         }
     }
 } 

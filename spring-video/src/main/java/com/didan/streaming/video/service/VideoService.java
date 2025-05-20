@@ -17,7 +17,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -109,5 +111,47 @@ public class VideoService {
         if (file.getSize() > maxFileSize) {
             throw new RuntimeException("Kích thước file vượt quá giới hạn cho phép");
         }
+    }
+
+    public List<VideoDto> getAllVideos() {
+        return videoRepository.findAll().stream()
+                .map(videoMapper::toDto)
+                .toList();
+    }
+
+    public VideoDto getVideoById(UUID id) {
+        return videoRepository.findById(id)
+                .map(videoMapper::toDto)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+    }
+
+    public VideoDto uploadVideo(MultipartFile file, String title, String description) throws IOException {
+        validateVideo(file);
+
+        User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        Video video = Video.builder()
+                .title(title)
+                .description(description)
+                .originalFilename(file.getOriginalFilename())
+                .status(VideoStatus.UPLOADING)
+                .owner(currentUser)
+                .build();
+
+        video = videoRepository.save(video);
+
+        String minioPath = storageService.uploadVideo(file, currentUser.getId(), video.getId());
+        video.setMinioPath(minioPath);
+        video.setFileSize(file.getSize());
+        video.setStatus(VideoStatus.UPLOADED);
+
+        video = videoRepository.save(video);
+        
+        return videoMapper.toDto(video);
+    }
+
+    private UUID getCurrentUserId() {
+        User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return currentUser.getId();
     }
 } 

@@ -19,10 +19,10 @@ public class VideoDto {
     private String description;
     private String originalFilename;
     private String hlsUrl;
-    private VideoStatus status;
     private Long fileSize;
-    private Long duration;
-    private UserDto owner;
+    private Integer duration;
+    private VideoStatus status;
+    private UserDto user;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 } 

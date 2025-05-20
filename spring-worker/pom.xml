@@ -10,8 +10,29 @@
     </parent>
 
     <artifactId>spring-worker</artifactId>
+    <repositories>
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>com.github.dannguyenmessi1705</groupId>
+            <artifactId>Spring-Archetype</artifactId>
+            <version>v2.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.projectlombok</groupId>
+                    <artifactId>lombok</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>net.bramp.ffmpeg</groupId>
             <artifactId>ffmpeg</artifactId>

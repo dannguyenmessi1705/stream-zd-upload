@@ -1,6 +1,6 @@
 package com.didan.streaming.video.controller;
 
-import com.streaming.video.dto.request.LoginRequest;
+import com.didan.streaming.video.dto.request.LoginRequest;
 import com.didan.streaming.video.dto.request.RegisterRequest;
 import com.didan.streaming.video.dto.response.AuthResponse;
 import com.didan.streaming.video.service.AuthService;
