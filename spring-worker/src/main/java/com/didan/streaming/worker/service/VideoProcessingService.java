@@ -1,5 +1,6 @@
 package com.didan.streaming.worker.service;
 
+import com.didan.streaming.worker.constant.VideoStatus;
 import com.didan.streaming.worker.dto.VideoMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,9 @@ public class VideoProcessingService {
         String originalFilename = message.getOriginalFilename();
 
         try {
+            // Cập nhật trạng thái đang xử lý
+            apiService.updateVideoStatus(videoId, VideoStatus.PROCESSING.name(), null);
+
             // Tạo thư mục tạm thời
             String tempPath = Path.of(tempDir, videoId).toString();
             Files.createDirectories(Path.of(tempPath));
@@ -50,8 +54,8 @@ public class VideoProcessingService {
             // Upload HLS lên Minio
             minioService.uploadHls(outputPath, videoId);
 
-            // Cập nhật trạng thái video
-            apiService.updateVideoStatus(videoId, "READY", duration);
+            // Cập nhật trạng thái video thành công
+            apiService.updateVideoStatus(videoId, VideoStatus.READY.name(), duration);
 
             // Dọn dẹp
             ffmpegService.cleanup(tempPath);
@@ -59,7 +63,7 @@ public class VideoProcessingService {
 
         } catch (Exception e) {
             log.error("Error processing video {}: {}", videoId, e.getMessage());
-            apiService.updateVideoStatus(videoId, "ERROR", null);
+            apiService.updateVideoStatus(videoId, VideoStatus.ERROR.name(), null);
             throw new RuntimeException("Failed to process video", e);
         }
     }

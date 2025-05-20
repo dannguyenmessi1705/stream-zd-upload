@@ -25,12 +25,14 @@ import Login from "./components/auth/Login";
 import Register from "./components/auth/Register";
 import PrivateRoute from "./components/auth/PrivateRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { useMessage } from "./hooks/useMessage";
 
 const { Header, Content } = Layout;
 
 const HeaderMenu: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const { message } = useMessage();
 
   const userMenuItems = [
     {
@@ -45,8 +47,36 @@ const HeaderMenu: React.FC = () => {
       danger: true,
       onClick: () => {
         logout();
+        message.success("Đã đăng xuất");
         navigate("/");
       },
+    },
+  ];
+
+  const menuItems = [
+    {
+      key: "1",
+      icon: <VideoCameraOutlined />,
+      label: <Link to="/">Videos</Link>,
+    },
+    ...(isAuthenticated
+      ? [
+          {
+            key: "2",
+            icon: <UploadOutlined />,
+            label: <Link to="/upload">Upload</Link>,
+          },
+          {
+            key: "3",
+            icon: <PlayCircleOutlined />,
+            label: <Link to="/livestream">Livestream</Link>,
+          },
+        ]
+      : []),
+    {
+      key: "4",
+      icon: <QuestionCircleOutlined />,
+      label: <Link to="/guide">Hướng dẫn</Link>,
     },
   ];
 
@@ -63,24 +93,12 @@ const HeaderMenu: React.FC = () => {
       }}
     >
       <div style={{ flex: 1 }}>
-        <Menu theme="dark" mode="horizontal" defaultSelectedKeys={["1"]}>
-          <Menu.Item key="1" icon={<VideoCameraOutlined />}>
-            <Link to="/">Videos</Link>
-          </Menu.Item>
-          {isAuthenticated && (
-            <>
-              <Menu.Item key="2" icon={<UploadOutlined />}>
-                <Link to="/upload">Upload</Link>
-              </Menu.Item>
-              <Menu.Item key="3" icon={<PlayCircleOutlined />}>
-                <Link to="/livestream">Livestream</Link>
-              </Menu.Item>
-            </>
-          )}
-          <Menu.Item key="4" icon={<QuestionCircleOutlined />}>
-            <Link to="/guide">Hướng dẫn</Link>
-          </Menu.Item>
-        </Menu>
+        <Menu
+          theme="dark"
+          mode="horizontal"
+          defaultSelectedKeys={["1"]}
+          items={menuItems}
+        />
       </div>
 
       <div>
@@ -113,9 +131,12 @@ const HeaderMenu: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const { contextHolder } = useMessage();
+
   return (
     <AuthProvider>
       <Router>
+        {contextHolder}
         <Layout style={{ minHeight: "100vh" }}>
           <HeaderMenu />
           <Content style={{ padding: "24px", marginTop: 64 }}>
@@ -124,7 +145,6 @@ const App: React.FC = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/guide" element={<Guide />} />
-
               <Route
                 path="/upload"
                 element={

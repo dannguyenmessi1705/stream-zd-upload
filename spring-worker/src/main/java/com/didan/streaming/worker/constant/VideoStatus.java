@@ -1,4 +1,4 @@
-package com.didan.streaming.video.entity;
+package com.didan.streaming.worker.constant;
 
 public enum VideoStatus {
     UPLOADING,    // Video đang được upload

@@ -1,97 +1,133 @@
-import React, { useEffect, useState } from "react";
-import { List, Card, Avatar, Space, Tag } from "antd";
-import { UserOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import React, { useEffect, useState, useCallback } from "react";
+import { List, Card, Avatar, Space, Tag, Table, Button } from "antd";
+import {
+  UserOutlined,
+  ClockCircleOutlined,
+  DeleteOutlined,
+  PlayCircleOutlined,
+} from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import { getVideos } from "../services/api";
 import { Video } from "../types";
 import moment from "moment";
+import { videoService } from "../services/videoService";
+import { useMessage } from "../hooks/useMessage";
 
 const VideoList: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const pageSize = 10;
+  const { message } = useMessage();
 
-  const fetchVideos = async (pageNumber: number) => {
+  const fetchVideos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await getVideos(pageNumber);
-      setVideos(response.data);
-      setTotal(response.data.length);
+      setError(null);
+      const response = await videoService.getVideos(page - 1, pageSize);
+      setVideos(response.content);
+      setTotal(response.totalElements);
     } catch (error) {
-      console.error("Failed to fetch videos:", error);
+      setError("Không thể tải danh sách video");
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchVideos(page);
   }, [page]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "READY":
-        return "success";
-      case "PROCESSING":
-        return "processing";
-      case "ERROR":
-        return "error";
-      default:
-        return "default";
+  useEffect(() => {
+    fetchVideos();
+  }, [fetchVideos]);
+
+  useEffect(() => {
+    if (error) {
+      message.error(error);
     }
-  };
+  }, [error, message]);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        await videoService.deleteVideo(id);
+        message.success("Xóa video thành công");
+        fetchVideos();
+      } catch (error) {
+        message.error("Không thể xóa video");
+      }
+    },
+    [fetchVideos, message]
+  );
+
+  const columns = [
+    {
+      title: "Tiêu đề",
+      dataIndex: "title",
+      key: "title",
+      render: (text: string, record: Video) => (
+        <Link to={`/videos/${record.id}`}>{text}</Link>
+      ),
+    },
+    {
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
+      render: (status: string) => (
+        <Tag color={videoService.getStatusColor(status)}>
+          {videoService.getStatusText(status)}
+        </Tag>
+      ),
+    },
+    {
+      title: "Kích thước",
+      dataIndex: "fileSize",
+      key: "fileSize",
+      render: (size: number) => `${(size / 1024 / 1024).toFixed(2)} MB`,
+    },
+    {
+      title: "Người tạo",
+      dataIndex: "owner",
+      key: "owner",
+      render: (owner: any) => owner.fullName,
+    },
+    {
+      title: "Thao tác",
+      key: "action",
+      render: (_: any, record: Video) => (
+        <Space size="middle">
+          <Button
+            type="link"
+            icon={<PlayCircleOutlined />}
+            disabled={!videoService.getHlsUrl(record)}
+            href={`/videos/${record.id}`}
+          >
+            Xem
+          </Button>
+          <Button
+            type="link"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          >
+            Xóa
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
-    <List
-      grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 3, xl: 4, xxl: 4 }}
+    <Table
+      columns={columns}
       dataSource={videos}
+      rowKey="id"
       loading={loading}
       pagination={{
-        onChange: (page) => setPage(page - 1),
-        total: total,
-        pageSize: 12,
-        current: page + 1,
+        current: page,
+        pageSize,
+        total,
+        onChange: setPage,
       }}
-      renderItem={(video) => (
-        <List.Item>
-          <Link to={`/video/${video.id}`}>
-            <Card
-              hoverable
-              cover={
-                <img
-                  alt={video.title}
-                  src={video.thumbnailUrl}
-                  style={{ height: 200, objectFit: "cover" }}
-                />
-              }
-            >
-              <Card.Meta
-                title={video.title}
-                description={
-                  <Space direction="vertical" size={2}>
-                    <Space>
-                      <Avatar
-                        size="small"
-                        icon={<UserOutlined />}
-                        src={video.user?.avatar}
-                      />
-                      <span>{video.user?.username}</span>
-                    </Space>
-                    <Space>
-                      <ClockCircleOutlined />
-                      <span>{moment(video.createdAt).fromNow()}</span>
-                    </Space>
-                    <Tag color={getStatusColor(video.status)}>
-                      {video.status}
-                    </Tag>
-                  </Space>
-                }
-              />
-            </Card>
-          </Link>
-        </List.Item>
-      )}
     />
   );
 };

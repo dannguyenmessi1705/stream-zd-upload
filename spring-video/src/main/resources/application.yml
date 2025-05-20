@@ -42,8 +42,16 @@ jwt:
 app:
   upload:
     temp-dir: /tmp/video-upload
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration: 86400000 # 1 day
+  api:
+    key: your-api-key # Phải giống với key trong worker
   video:
-    allowed-formats: mp4,avi,mov,wmv,flv,mkv
+    allowed-formats:
+      - video/mp4
+      - video/x-matroska
+      - video/quicktime
     max-file-size: 1073741824 # 1GB
   transcoding:
     profiles:
