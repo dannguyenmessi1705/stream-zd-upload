@@ -35,3 +35,7 @@ build/
 ### React ###
 node_modules/
 
+### Docker ###
+postgres-data
+minio-data
+kafka-data

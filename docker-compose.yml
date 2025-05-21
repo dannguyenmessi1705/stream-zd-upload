@@ -1,62 +1,68 @@
 services:
   # Spring Video Service
-  video-service:
-    build: 
-      context: ./spring-video
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/streaming
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - SPRING_REDIS_HOST=redis
-      - MINIO_ENDPOINT=http://minio:9000
-    depends_on:
-      - postgres
-      - kafka
-      - redis
-      - minio
-      - debezium
-
-  # Spring Worker Service
-  worker-service:
-    build:
-      context: ./spring-worker
-      dockerfile: Dockerfile
-    ports:
-      - "8081:8081"
-    environment:
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - SPRING_REDIS_HOST=redis
-      - MINIO_ENDPOINT=http://minio:9000
-    volumes:
-      - worker-data:/tmp/stream-worker
-    depends_on:
-      - kafka
-      - redis
-      - minio
+#  video-service:
+#    build:
+#      context: ./spring-video
+#      dockerfile: Dockerfile
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/streaming
+#      - SPRING_DATASOURCE_USERNAME=postgres
+#      - SPRING_DATASOURCE_PASSWORD=postgres
+#      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+#      - SPRING_REDIS_HOST=redis
+#      - MINIO_ENDPOINT=http://minio:9000
+#    depends_on:
+#      - postgres
+#      - kafka
+#      - redis
+#      - minio
+#      - debezium
+#
+#  # Spring Worker Service
+#  worker-service:
+#    build:
+#      context: ./spring-worker
+#      dockerfile: Dockerfile
+#    ports:
+#      - "8081:8081"
+#    environment:
+#      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+#      - SPRING_REDIS_HOST=redis
+#      - MINIO_ENDPOINT=http://minio:9000
+#    volumes:
+#      - ./worker-data:/tmp/stream-worker
+#    depends_on:
+#      - kafka
+#      - redis
+#      - minio
 
   # PostgreSQL
   postgres:
-    image: postgres:15-alpine
+    image: postgres:13
+    hostname: postgres
+    container_name: postgres
     ports:
       - "5432:5432"
     environment:
       - POSTGRES_DB=streaming
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=didannguyen
+      - POSTGRES_PASSWORD=17052002
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-data:/var/lib/postgresql/data
     command: 
       - "postgres"
       - "-c"
       - "wal_level=logical"
+    networks:
+      - zd-network
 
   # Debezium Connect
   debezium:
     image: debezium/connect:2.5
+    hostname: debezium
+    container_name: debezium
     ports:
       - "8083:8083"
     environment:
@@ -72,50 +78,211 @@ services:
     depends_on:
       - kafka
       - postgres
+    networks:
+      - zd-network
 
   # Kafka & Zookeeper
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    environment:
-      - ZOOKEEPER_CLIENT_PORT=2181
-      - ZOOKEEPER_TICK_TIME=2000
-    ports:
-      - "2181:2181"
+  kafka-gen:
+    image: confluentinc/cp-kafka:7.3.2
+    hostname: kafka-gen
+    container_name: kafka-gen
+    volumes:
+      - ./script/create_cluster_id.sh:/tmp/create_cluster_id.sh
+      - ./script/clusterID:/tmp/clusterID
+    command: "bash -c '/tmp/create_cluster_id.sh'"
+    networks:
+      - zd-network
 
   kafka:
-    image: confluentinc/cp-kafka:7.4.0
+    image: confluentinc/cp-kafka:7.3.2
     ports:
-      - "9092:9092"
+      - "9092:9092"  # Port cho producer/consumer kết nối
+      - "29092:29092"  # Port cho inter-broker communication
+      - "9997:9997"  # Port cho JMX monitoring
+    container_name: kafka
+    healthcheck: # Cấu hình kiểm tra sức khỏe container
+      test: nc -z localhost 9092 || exit -1  # Kiểm tra port 9092 có hoạt động không
+      start_period: 15s  # Thời gian chờ trước khi bắt đầu kiểm tra
+      interval: 5s  # Khoảng thời gian giữa các lần kiểm tra
+      timeout: 10s  # Thời gian tối đa cho mỗi lần kiểm tra
+      retries: 10  # Số lần thử lại nếu kiểm tra thất bại
     environment:
-      - KAFKA_BROKER_ID=1
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
-      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      # Cấu hình cơ bản
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT  # Tên listener cho giao tiếp giữa các broker
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER  # Tên listener cho controller
+      KAFKA_COMPRESSION_TYPE: producer  # Loại nén dữ liệu
+      KAFKA_BROKER_ID: 1  # ID duy nhất cho mỗi broker
+      KAFKA_KRAFT_MODE: "true"
+
+      # Cấu hình listeners và advertised listeners
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092  # Các listener được quảng bá
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT  # Map giữa listener và security protocol
+
+      # Cấu hình replication và transaction
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1  # Số replica cho topic offsets
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0  # Thời gian delay trước khi rebalance
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1  # Số replica cho license topic
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1  # Số ISR tối thiểu cho transaction state
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1  # Số replica cho transaction state
+
+      # Cấu hình JMX
+      KAFKA_JMX_PORT: 9997  # Port cho JMX
+      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka -Dcom.sun.management.jmxremote.rmi.port=9997  # Các tùy chọn JMX
+
+      # Cấu hình KRaft (Kafka Raft)
+      KAFKA_PROCESS_ROLES: 'broker,controller'  # Vai trò của node
+      KAFKA_NODE_ID: 1  # ID của node
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093  # Danh sách các voter trong quorum
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092  # Các listener
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs  # Thư mục lưu log
+    volumes:
+      - ./kafka-data:/var/lib/kafka/data
+      - ./script/update_run.sh:/tmp/update_run.sh  # Mount script cập nhật
+      - ./script/clusterID:/tmp/clusterID
+    command: "bash -c '/tmp/update_run.sh && /etc/confluent/docker/run'"  # Command khởi động
+    networks:
+      - zd-network
+
+  kafbat-ui:
+    container_name: kafbat-ui  # Tên container
+    image: ghcr.io/kafbat/kafka-ui:latest  # Sử dụng image Kafka UI
+    ports:
+      - 8017:8080  # Expose port 8080 ra port 8017
     depends_on:
-      - zookeeper
+      - kafka  # Phụ thuộc vào kafka
+      # - kafka2
+    environment:
+      # Cấu hình cluster Kafka 1
+      KAFKA_CLUSTERS_0_NAME: kafka  # Tên cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092  # Địa chỉ bootstrap servers
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9997  # Port cho metrics
+      # KAFKA_CLUSTERS_1_NAME: kafka2
+      # KAFKA_CLUSTERS_1_BOOTSTRAPSERVERS: kafka2:29093
+      # KAFKA_CLUSTERS_1_METRICS_PORT: 9998
+
+      # Cấu hình bảo mật
+      DYNAMIC_CONFIG_ENABLED: 'true'  # Cho phép cấu hình động
+      AUTH_TYPE: "LOGIN_FORM"  # Loại xác thực sử dụng form đăng nhập
+      SPRING_SECURITY_USER_NAME: admin  # Tên đăng nhập
+      SPRING_SECURITY_USER_PASSWORD: 17052002  # Mật khẩu đăng nhập
+    networks:
+      - zd-network
 
   # Redis
-  redis:
-    image: redis:7-alpine
+  redis_1:
+    image: "redis:6.2"
+    container_name: redis_1
     ports:
-      - "6379:6379"
+      - 7001:7001
+      - 17001:17001
+    volumes:
+      - ./script/cluster/redis_1.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    networks:
+      - zd-network
 
-  # MinIO
+  redis_2:
+    image: "redis:6.2"
+    container_name: redis_2
+    ports:
+      - 7002:7002
+      - 17002:17002
+    volumes:
+      - ./script/cluster/redis_2.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    networks:
+      - zd-network
+
+  redis_3:
+    image: "redis:6.2"
+    container_name: redis_3
+    ports:
+      - 7003:7003
+      - 17003:17003
+    volumes:
+      - ./script/cluster/redis_3.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    networks:
+      - zd-network
+
+  redis_4:
+    image: "redis:6.2"
+    container_name: redis_4
+    ports:
+      - 7004:7004
+      - 17004:17004
+    volumes:
+      - ./script/cluster/redis_4.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    networks:
+      - zd-network
+
+  redis_5:
+    image: "redis:6.2"
+    container_name: redis_5
+    ports:
+      - 7005:7005
+      - 17005:17005
+    volumes:
+      - ./script/cluster/redis_5.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    networks:
+      - zd-network
+
+  redis_6:
+    image: "redis:6.2"
+    container_name: redis_6
+    ports:
+      - 7006:7006
+      - 17006:17006
+    volumes:
+      - ./script/cluster/redis_6.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    networks:
+      - zd-network
+
+  cluster_initiator:
+    container_name: cluster_initiator
+    build:
+      context: ./script
+      dockerfile: Dockerfile.redis
+    tty: true
+    depends_on:
+      - redis_1
+      - redis_2
+      - redis_3
+      - redis_4
+      - redis_5
+      - redis_6
+    networks:
+      - zd-network
+
   minio:
     image: minio/minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    command: server /data --console-address ":9001"
+    container_name: minio
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -k -f http://127.0.0.1:9001/minio/health/live || exit 1" ]
     volumes:
-      - minio-data:/data
+      - "./minio-data:/data"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      LANG: en_US.UTF-8
+      MINIO_PROMETHEUS_AUTH_TYPE: "public"
+      MINIO_ROOT_USER: "didannguyen"
+      MINIO_ROOT_PASSWORD: "17052002"
+    command: server /data --console-address ':9001'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+    ports:
+      - "10000:9000" # API
+      - "10001:9001" # UI
+    networks:
+      - zd-network
 
-volumes:
-  postgres-data:
-  worker-data:
-  minio-data: 
+networks:
+  zd-network:
+    driver: bridge
+
