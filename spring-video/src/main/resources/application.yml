@@ -1,45 +1,37 @@
 server:
   port: 8080
 
-spring:
-  application:
-    name: stream-video
-  datasource:
-    url: jdbc:postgresql://localhost:5432/streaming
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  servlet:
-    multipart:
-      max-file-size: 2GB
-      max-request-size: 2GB
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-
-minio:
-  endpoint: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
-  bucket:
-    video: videos
-    hls: hls
-
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration: 86400000 # 1 day
-
 app:
+  application-context-name: Spring Video Streaming
+  application-short-name: SVS
+  log-request-http: true
+  locale-resolver-languages: vi,en
+  log:
+    loki:
+      host: localhost
+      port: 3100
+  default-service-enable-log-request: true
+  cache:
+    redisson:
+      enabled: true
+      password: 17052002
+      node-addresses: redis://localhost:7001,redis://localhost:7002,redis://localhost:7003,redis://localhost:7004,redis://localhost:7005,redis://localhost:7006
+      username: default
+      connection-pool-size: 16
+      master-connection-pool-size: 16
+      slave-connection-pool-size: 16
+      subscription-connection-pool-size: 10
+      connection-minimum-idle-size: 6
+      master-connection-minimum-idle-size: 6
+      slave-connection-minimum-idle-size: 6
+  minio:
+    enabled: true
+    host: localhost
+    port: 10000
+    username: didannguyen
+    password: 17052002
+    secure: false
+  time-trace-enabled: true
   upload:
     temp-dir: /tmp/video-upload
   jwt:
@@ -48,10 +40,7 @@ app:
   api:
     key: your-api-key # Phải giống với key trong worker
   video:
-    allowed-formats:
-      - video/mp4
-      - video/x-matroska
-      - video/quicktime
+    allowed-formats: video/mp4,video/x-matroska,video/quicktime
     max-file-size: 1073741824 # 1GB
   transcoding:
     profiles:
@@ -75,6 +64,70 @@ app:
     url: rtmp://localhost/live
   webrtc:
     url: wss://localhost:8443/webrtc
+  datasource:
+    default:
+      enabled: true
+      driver-class-name: org.postgresql.Driver
+      url: jdbc:postgresql://localhost:5432/streaming
+      username: didannguyen
+      password: 17052002
+      properties:
+        hibernate:
+          hbm2ddl:
+            auto: update
+          show_sql: true
+          format_sql: true
+          use_sql_comments: true
+      configuration:
+        maximum-pool-size: 100
+        idle-timeout: 40000
+        connection-timeout: 60000
+        max-lifetime: 600000
+
+
+spring:
+  application:
+    name: stream-video
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  servlet:
+    multipart:
+      max-file-size: 2GB
+      max-request-size: 2GB
+  kafka:
+    enabled: true
+    producer:
+      enabled: true
+      bootstrap-servers: localhost:9092
+      retries: 3
+      topic:
+        video-uploaded: video-uploaded
+        video-processed: video-processed
+        livestream-status: livestream-status
+    consumer:
+      enabled: true
+      bootstrap-servers: localhost:9092
+      group-id: video-service-group
+
+    bootstrap-servers: localhost:9092
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket:
+    video: videos
+    hls: hls
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expiration: 86400000 # 1 day
 
 kafka:
   topic:

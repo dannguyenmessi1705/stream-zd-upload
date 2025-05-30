@@ -32,8 +32,8 @@ public class VideoService {
     private final StorageService storageService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    @Value("${app.video.allowed-formats}")
-    private String[] allowedFormats;
+    @Value("#{'${app.video.allowed-formats}'.split(',')}")
+    private List<String> allowedFormats;
 
     @Value("${app.video.max-file-size}")
     private long maxFileSize;

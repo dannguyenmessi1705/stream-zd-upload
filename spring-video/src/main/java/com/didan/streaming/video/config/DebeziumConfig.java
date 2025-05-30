@@ -12,19 +12,19 @@ import org.springframework.context.annotation.Bean;
 @org.springframework.context.annotation.Configuration
 public class DebeziumConfig {
 
-    @Value("${spring.datasource.username}")
+    @Value("${app.datasource.default.username}")
     private String dbUsername;
 
-    @Value("${spring.datasource.password}")
+    @Value("${app.datasource.default.password}")
     private String dbPassword;
 
-    @Value("${spring.datasource.url}")
+    @Value("${app.datasource.default.url}")
     private String dbUrl;
 
     @Value("${debezium.offset.storage.file.filename}")
     private String offsetStorageFile;
 
-    @Bean
+    @Bean("debeziumConfiguration") // Renamed the bean to avoid conflict
     public Configuration debeziumConfig() {
         // Đảm bảo thư mục offset tồn tại
         File offsetDir = new File(offsetStorageFile).getParentFile();
@@ -71,4 +71,5 @@ public class DebeziumConfig {
                 .notifying(debeziumListener)
                 .build();
     }
-} 
+}
+
