@@ -21,7 +21,6 @@ public class LivestreamController {
     private final LivestreamService livestreamService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<LivestreamDto> createLivestream(@Valid @RequestBody CreateLivestreamRequest request) {
         return ResponseEntity.ok(livestreamService.createLivestream(request));
     }
@@ -37,21 +36,18 @@ public class LivestreamController {
     }
 
     @PostMapping("/{id}/start")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Void> startLivestream(@PathVariable UUID id) {
         livestreamService.startLivestream(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/end")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Void> endLivestream(@PathVariable UUID id) {
         livestreamService.endLivestream(id);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Void> deleteLivestream(@PathVariable UUID id) {
         livestreamService.deleteLivestream(id);
         return ResponseEntity.noContent().build();

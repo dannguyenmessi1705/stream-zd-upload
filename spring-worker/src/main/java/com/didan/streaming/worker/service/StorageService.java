@@ -15,10 +15,10 @@ public class StorageService {
 
     private final MinioClient minioClient;
 
-    @Value("${minio.bucket.video}")
+    @Value("${app.minio.bucket.video}")
     private String videoBucket;
 
-    @Value("${minio.bucket.hls}")
+    @Value("${app.minio.bucket.hls}")
     private String hlsBucket;
 
     public byte[] getVideo(String objectName) {

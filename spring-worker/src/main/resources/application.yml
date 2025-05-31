@@ -5,35 +5,59 @@ spring:
   application:
     name: stream-worker
   kafka:
+    enabled: true
     bootstrap-servers: localhost:9092
     consumer:
+      enabled: true
       group-id: video-processing-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "com.streaming.worker.dto"
+      bootstrap-servers: localhost:9092
     producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-  redis:
-    host: localhost
-    port: 6379
-
-minio:
-  endpoint: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
-  bucket:
-    video: videos
-    hls: hls
+      bootstrap-servers: localhost:9092
+      retries: 3
+      topic:
+        video-uploaded: video-uploaded
+        video-processed: video-processed
+      enabled: true
 
 app:
+  api:
+    base-url: http://localhost:8080
+    key: 1234567890abcdef
+  application-context-name: Spring Video Worker
+  application-short-name: SVW
+  log-request-http: true
+  locale-resolver-languages: vi,en
+  temp-dir: /tmp/stream-worker/temp
+  log:
+    loki:
+      host: localhost
+      port: 3100
+  default-service-enable-log-request: true
+  cache:
+    redisson:
+      enabled: true
+      password: 17052002
+      node-addresses: redis://localhost:7001,redis://localhost:7002,redis://localhost:7003,redis://localhost:7004,redis://localhost:7005,redis://localhost:7006
+      username: default
+      connection-pool-size: 16
+      master-connection-pool-size: 16
+      slave-connection-pool-size: 16
+      subscription-connection-pool-size: 10
+      connection-minimum-idle-size: 6
+      master-connection-minimum-idle-size: 6
+      slave-connection-minimum-idle-size: 6
+  minio:
+    enabled: true
+    host: localhost
+    port: 10000
+    username: didannguyen
+    password: 17052002
+    secure: false
+    bucket:
+      video: videos
+      hls: hls
   ffmpeg:
     input-path: /tmp/stream-worker/input
     output-path: /tmp/stream-worker/output
-
-kafka:
-  topic:
-    video-uploaded: video-uploaded
-    video-processed: video-processed 
+    output-dir: /tmp/stream-worker/output
+    segment-duration: 10

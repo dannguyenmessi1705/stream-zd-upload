@@ -2,10 +2,12 @@ package com.didan.streaming.worker.service;
 
 import com.didan.streaming.worker.constant.VideoStatus;
 import com.didan.streaming.worker.dto.VideoMessage;
+import com.google.gson.Gson;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -21,12 +23,17 @@ public class VideoProcessingService {
     private final MinioService minioService;
     private final FFmpegService ffmpegService;
     private final ApiService apiService;
+    private final Gson gson;
 
     @Value("${app.temp-dir}")
     private String tempDir;
 
-    @KafkaListener(topics = "video-uploaded", groupId = "video-processor")
-    public void processVideo(VideoMessage message) {
+    @KafkaListener(
+            topics = "video-uploaded",
+            groupId = "video-processor")
+    public void processVideo(String messageString) {
+        log.info("Received video processing message: {}", messageString);
+        VideoMessage message = gson.fromJson(messageString, VideoMessage.class);
         String videoId = message.getVideoId();
         String userId = message.getUserId();
         String minioPath = message.getMinioPath();
@@ -67,4 +74,5 @@ public class VideoProcessingService {
             throw new RuntimeException("Failed to process video", e);
         }
     }
-} 
+}
+

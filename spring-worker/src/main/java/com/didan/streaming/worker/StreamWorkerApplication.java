@@ -1,16 +1,15 @@
 package com.didan.streaming.worker;
 
+import com.didan.archetype.annotation.EnableArchetype;
 import jakarta.annotation.PostConstruct;
+import java.io.File;
+import java.nio.file.Path;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.kafka.annotation.EnableKafka;
-
-import java.io.File;
-import java.nio.file.Path;
 
 @SpringBootApplication
-@EnableKafka
+@EnableArchetype
 public class StreamWorkerApplication {
 
     @Value("${app.ffmpeg.input-path}")

@@ -4,7 +4,8 @@ server:
 app:
   application-context-name: Spring Video Streaming
   application-short-name: SVS
-  log-request-http: true
+  log-request-http:
+    enabled: true
   locale-resolver-languages: vi,en
   log:
     loki:
@@ -31,6 +32,9 @@ app:
     username: didannguyen
     password: 17052002
     secure: false
+    bucket:
+      video: videos
+      hls: hls
   time-trace-enabled: true
   upload:
     temp-dir: /tmp/video-upload
@@ -38,7 +42,7 @@ app:
     secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     expiration: 86400000 # 1 day
   api:
-    key: your-api-key # Phải giống với key trong worker
+    key: 1234567890abcdef # Phải giống với key trong worker
   video:
     allowed-formats: video/mp4,video/x-matroska,video/quicktime
     max-file-size: 1073741824 # 1GB
@@ -114,16 +118,7 @@ spring:
       enabled: true
       bootstrap-servers: localhost:9092
       group-id: video-service-group
-
     bootstrap-servers: localhost:9092
-
-minio:
-  endpoint: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
-  bucket:
-    video: videos
-    hls: hls
 
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970

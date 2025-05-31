@@ -19,10 +19,10 @@ import java.nio.file.Path;
 public class MinioService {
     private final MinioClient minioClient;
 
-    @Value("${minio.bucket.video}")
+    @Value("${app.minio.bucket.video}")
     private String videoBucket;
 
-    @Value("${minio.bucket.hls}")
+    @Value("${app.minio.bucket.hls}")
     private String hlsBucket;
 
     public void downloadVideo(String minioPath, String localPath) {

@@ -6,4 +6,4 @@ public enum VideoStatus {
     PROCESSING,   // Video đang được xử lý (chuyển đổi sang HLS)
     READY,        // Video đã sẵn sàng để phát
     ERROR         // Có lỗi xảy ra trong quá trình xử lý
-} 
+}

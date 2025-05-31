@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -23,7 +24,6 @@ public class VideoController {
     private final VideoService videoService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<VideoDto> createVideo(
             @Valid @RequestPart("request") CreateVideoRequest request,
             @RequestPart("file") MultipartFile file
@@ -41,10 +41,18 @@ public class VideoController {
         return ResponseEntity.ok(videoService.getVideos(pageable));
     }
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<Void> deleteVideo(@PathVariable UUID id) {
-        videoService.deleteVideo(id);
-        return ResponseEntity.noContent().build();
+    @PostMapping("/{id}/status")
+    public ResponseEntity<Void> updateVideoStatus(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> statusUpdate,
+            @RequestHeader("X-API-KEY") String apiKey
+    ) {
+        String status = (String) statusUpdate.get("status");
+        Integer duration = statusUpdate.get("duration") != null ?
+                Integer.valueOf(statusUpdate.get("duration").toString()) : null;
+
+        videoService.updateVideoStatus(id, status, duration);
+        return ResponseEntity.ok().build();
     }
-} 
+}
+
